@@ -23,6 +23,62 @@ If the API key is missing or invalid:
 
 ## REST Endpoints
 
+### Health Check
+Verifies the API's core dependencies and configuration.
+
+**Endpoint:** `GET /health`
+
+**Response:**
+```typescript
+// Success (200 OK)
+{
+  status: 'healthy',
+  version: string,  // API version
+  uptime: number,   // Server uptime in seconds
+}
+
+// Configuration Error (503 Service Unavailable)
+{
+  status: 'error',
+  message: 'Missing required configuration',
+  checks: {
+    openai: boolean,    // OpenAI configuration status
+    firecrawl: boolean, // Firecrawl configuration status
+    api: boolean,       // API key configuration status
+  }
+}
+
+// Connection Error (503 Service Unavailable)
+{
+  status: 'error',
+  message: 'Firecrawl connection failed',
+  error?: string  // Error details (in development mode)
+}
+
+// Internal Error (500 Internal Server Error)
+{
+  status: 'error',
+  message: 'Health check failed',
+  error?: string  // Error details (in development mode)
+}
+```
+
+**Notes:**
+- No authentication required
+- Checks for required environment variables
+- Tests Firecrawl connectivity
+- Useful for container orchestration and monitoring
+
+**Example:**
+```typescript
+const response = await fetch('http://localhost:3005/health');
+const health = await response.json();
+
+if (health.status !== 'healthy') {
+  console.error('Service unhealthy:', health.message);
+}
+```
+
 ### Start Research
 Initiates a new research session.
 

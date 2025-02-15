@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import * as process from 'process';
 import cors from 'cors';
 import { z } from 'zod';
+import FirecrawlApp from '@mendable/firecrawl-js';
 
 import { deepResearch, writeFinalReport } from '../deep-research';
 import { OutputManager } from '../output-manager';
@@ -266,6 +267,63 @@ app.get('/api/research/:sessionId', (req: Request, res: Response, next: NextFunc
     });
   } catch (error) {
     next(error);
+  }
+});
+
+// Initialize Firecrawl
+const firecrawl = new FirecrawlApp({
+  apiKey: process.env.FIRECRAWL_KEY ?? '',
+  apiUrl: process.env.FIRECRAWL_BASE_URL,
+});
+
+// Health check endpoint (no auth required)
+app.get('/health', async (req: Request, res: Response) => {
+  try {
+    // Check OpenAI configuration
+    const hasOpenAIConfig = !!process.env.OPENAI_KEY || (!!process.env.OPENAI_ENDPOINT && !!process.env.OPENAI_MODEL);
+    
+    // Check Firecrawl configuration
+    const hasFirecrawlConfig = !!process.env.FIRECRAWL_KEY || !!process.env.FIRECRAWL_BASE_URL;
+    
+    // Check API configuration
+    const hasAPIConfig = !!process.env.API_KEY;
+    
+    if (!hasOpenAIConfig || !hasFirecrawlConfig || !hasAPIConfig) {
+      res.status(503).json({
+        status: 'error',
+        message: 'Missing required configuration',
+        checks: {
+          openai: hasOpenAIConfig,
+          firecrawl: hasFirecrawlConfig,
+          api: hasAPIConfig,
+        }
+      });
+      return;
+    }
+    
+    // Optional: Test Firecrawl connection
+    try {
+      await firecrawl.search('test', { limit: 1 });
+    } catch (error: any) {
+      res.status(503).json({
+        status: 'error',
+        message: 'Firecrawl connection failed',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+      return;
+    }
+    
+    res.json({
+      status: 'healthy',
+      version: process.env.npm_package_version || '0.0.1',
+      uptime: process.uptime(),
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Health check failed',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
