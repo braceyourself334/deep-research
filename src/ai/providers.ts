@@ -7,20 +7,29 @@ interface CustomOpenAIProviderSettings extends OpenAIProviderSettings {
   baseURL?: string;
 }
 
-// Providers
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_KEY!,
-  baseURL: process.env.OPENAI_ENDPOINT || 'https://api.openai.com/v1',
-} as CustomOpenAIProviderSettings);
+interface ModelConfig {
+  name?: string;
+  endpoint?: string;
+  contextSize?: number;
+}
 
-const customModel = process.env.OPENAI_MODEL || 'o3-mini';
+// Create OpenAI instance with dynamic configuration
+export function createOpenAIProvider(config?: ModelConfig) {
+  const openai = createOpenAI({
+    apiKey: process.env.OPENAI_KEY!,
+    baseURL: config?.endpoint || process.env.OPENAI_ENDPOINT || 'https://api.openai.com/v1',
+  } as CustomOpenAIProviderSettings);
 
-// Models
+  const modelName = config?.name || process.env.OPENAI_MODEL || 'o3-mini';
+  
+  return openai(modelName, {
+    reasoningEffort: modelName.startsWith('o') ? 'medium' : undefined,
+    structuredOutputs: true,
+  });
+}
 
-export const o3MiniModel = openai(customModel, {
-  reasoningEffort: customModel.startsWith('o') ? 'medium' : undefined,
-  structuredOutputs: true,
-});
+// Default provider instance for backward compatibility
+export const o3MiniModel = createOpenAIProvider();
 
 const MinChunkSize = 140;
 const encoder = getEncoding('o200k_base');

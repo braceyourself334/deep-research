@@ -1,39 +1,64 @@
+import * as process from 'process';
 import { ResearchProgress } from './deep-research';
+
+export interface OutputManagerOptions {
+  headless?: boolean;
+  onOutput?: (message: string) => void;
+  onProgress?: (progress: ResearchProgress) => void;
+}
 
 export class OutputManager {
   private progressLines: number = 4;
   private progressArea: string[] = [];
   private initialized: boolean = false;
+  private headless: boolean;
+  private onOutput?: (message: string) => void;
+  private onProgress?: (progress: ResearchProgress) => void;
   
-  constructor() {
-    // Initialize terminal
-    process.stdout.write('\n'.repeat(this.progressLines));
-    this.initialized = true;
+  constructor(options: OutputManagerOptions = {}) {
+    this.headless = options.headless ?? false;
+    this.onOutput = options.onOutput;
+    this.onProgress = options.onProgress;
+    
+    if (!this.headless) {
+      process.stdout.write('\n'.repeat(this.progressLines));
+      this.initialized = true;
+    }
   }
   
   log(...args: any[]) {
-    // Move cursor up to progress area
-    if (this.initialized) {
-      process.stdout.write(`\x1B[${this.progressLines}A`);
-      // Clear progress area
-      process.stdout.write('\x1B[0J');
+    const message = args.join(' ');
+    
+    if (this.onOutput) {
+      this.onOutput(message);
     }
-    // Print log message
-    console.log(...args);
-    // Redraw progress area if initialized
-    if (this.initialized) {
-      this.drawProgress();
+    
+    if (!this.headless) {
+      if (this.initialized) {
+        process.stdout.write(`\x1B[${this.progressLines}A`);
+        process.stdout.write('\x1B[0J');
+      }
+      console.log(...args);
+      if (this.initialized) {
+        this.drawProgress();
+      }
     }
   }
   
   updateProgress(progress: ResearchProgress) {
-    this.progressArea = [
-      `Depth:    [${this.getProgressBar(progress.totalDepth - progress.currentDepth, progress.totalDepth)}] ${Math.round((progress.totalDepth - progress.currentDepth) / progress.totalDepth * 100)}%`,
-      `Breadth:  [${this.getProgressBar(progress.totalBreadth - progress.currentBreadth, progress.totalBreadth)}] ${Math.round((progress.totalBreadth - progress.currentBreadth) / progress.totalBreadth * 100)}%`,
-      `Queries:  [${this.getProgressBar(progress.completedQueries, progress.totalQueries)}] ${Math.round(progress.completedQueries / progress.totalQueries * 100)}%`,
-      progress.currentQuery ? `Current:  ${progress.currentQuery}` : ''
-    ];
-    this.drawProgress();
+    if (this.onProgress) {
+      this.onProgress(progress);
+    }
+    
+    if (!this.headless) {
+      this.progressArea = [
+        `Depth:    [${this.getProgressBar(progress.totalDepth - progress.currentDepth, progress.totalDepth)}] ${Math.round((progress.totalDepth - progress.currentDepth) / progress.totalDepth * 100)}%`,
+        `Breadth:  [${this.getProgressBar(progress.totalBreadth - progress.currentBreadth, progress.totalBreadth)}] ${Math.round((progress.totalBreadth - progress.currentBreadth) / progress.totalBreadth * 100)}%`,
+        `Queries:  [${this.getProgressBar(progress.completedQueries, progress.totalQueries)}] ${Math.round(progress.completedQueries / progress.totalQueries * 100)}%`,
+        progress.currentQuery ? `Current:  ${progress.currentQuery}` : ''
+      ];
+      this.drawProgress();
+    }
   }
   
   private getProgressBar(value: number, total: number): string {
